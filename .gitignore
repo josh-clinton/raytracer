@@ -1,0 +1,12 @@
+build/
+*.ppm
+*.o
+*.obj
+*.exe
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# compiled example binaries (source is what matters here)
+learning/simplest_raytracer
+learning/normal_shaded_sphere
