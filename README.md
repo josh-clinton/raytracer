@@ -51,6 +51,23 @@ python3 -c "from PIL import Image; Image.open('render.ppm').save('render.png')"
 - **800×450, 100 samples/pixel, depth 12** (487 spheres, BVH-accelerated): **28.1s**, ~1.3 Mray/s effective throughput.
 - **BVH acceleration structure benchmark** (300×168, 32 spp, depth 8, same 487-sphere scene): linear scan **8.51s** vs. BVH **1.36s** → **6.24× speedup**. This is the same core idea (spatial acceleration structures a ray traversal engine walks) behind hardware BVH traversal on GPU RT cores — just implemented and measured here on CPU to build intuition for it.
 
+### How the speedup changes across scenes
+
+[`benchmarks/`](benchmarks/) sweeps that BVH-vs-linear-scan comparison across
+four axes instead of the one fixed scene above — image size, object count,
+camera angle, and material mix — each run multiple times with random scene
+variations, with error bars. See [`benchmarks/RESULTS.md`](benchmarks/RESULTS.md)
+for the charts and current numbers, or regenerate them yourself:
+
+```bash
+cd benchmarks && python3 sweep.py
+```
+
+Headline finding: **object count is what actually drives the speedup**
+(BVH turns O(N) into ~O(log N), so the gap widens as the scene fills up);
+image size, camera angle, and material mix move it only modestly, since
+those don't change how many objects a ray has to be tested against.
+
 ## Project layout
 
 ```
