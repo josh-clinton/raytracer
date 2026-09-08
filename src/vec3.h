@@ -156,6 +156,17 @@ inline vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
     return r_out_perp + r_out_parallel;
 }
 
+// Scalar "brightness" of a color, used wherever a single number is needed
+// to compare or weight colors against each other - e.g. reservoir.h's
+// resampling weights, which have to be scalars even though the underlying
+// light contributions are RGB. Standard perceptual (Rec. 709) luminance
+// weights: human vision is far more sensitive to green than red or blue,
+// so a pure-green candidate and an equally-radiant pure-blue candidate
+// shouldn't be treated as equally "important."
+inline double luminance(const color& c) {
+    return 0.2126 * c.x() + 0.7152 * c.y() + 0.0722 * c.z();
+}
+
 // Uniformly samples a direction, in a local frame where +z points at a
 // sphere's center, within the cone that sphere subtends (radius, at
 // distance_squared away). This concentrates every sample on the visible

@@ -7,14 +7,16 @@
 //   - Recursive ray tracing: ray_color() recurses on scattered rays up to
 //     `max_depth`, accumulating attenuation - a direct implementation of
 //     the rendering equation truncated to a finite number of bounces.
-//   - Next-event estimation: at every non-specular hit, sample_direct_lighting()
-//     picks a light, importance-samples a direction toward it, and traces
-//     one shadow ray - instead of hoping a blind BRDF bounce wanders onto a
-//     light by chance. This is the "many lights" direct-lighting baseline
-//     ReSTIR (next project step) is built to make cheaper and lower-noise:
-//     ReSTIR reuses this exact "score candidates cheaply, verify the winner
-//     with one ray" shape, just with many candidates resolved into one
-//     reservoir instead of a single uniform pick.
+//   - Resampled importance sampling: at every non-specular hit,
+//     sample_direct_lighting() draws `light_candidates` cheap (light,
+//     direction) candidates, scores each by unshadowed contribution, and
+//     streams them through a reservoir (reservoir.h) so the one sample that
+//     actually pays for a shadow ray is whichever looked most promising -
+//     not just a blind uniform pick. Same one-shadow-ray-per-hit cost as
+//     plain next-event estimation, aimed far better. Spatial and temporal
+//     reuse (next project steps) extend this same reservoir by merging in
+//     neighboring pixels'/previous frames' already-built reservoirs as
+//     extra free candidates.
 //   - Parallelism: rows are distributed across a thread pool, which is the
 //     minimum viable version of the "profile, debug, and optimize graphics
 //     workloads for performance" bullet in the JD.
@@ -33,8 +35,20 @@
 #include "hittable.h"
 #include "material.h"
 #include "ray.h"
+#include "reservoir.h"
 #include "sphere.h"
 #include "vec3.h"
+
+// A single (light, direction) candidate for direct-light reservoir
+// resampling - the Sample type reservoir<Sample> streams through. Carries
+// its own cheap unshadowed contribution so the eventual winner's color
+// doesn't need to be re-derived after the reservoir has already discarded
+// every other candidate.
+struct light_sample {
+    size_t light_idx = 0;
+    vec3 direction;
+    color unshadowed{0, 0, 0};  // Le * BRDF * cos(theta) - no shadow ray yet
+};
 
 class camera {
 public:
@@ -42,6 +56,8 @@ public:
     int image_width = 400;
     int samples_per_pixel = 100;
     int max_depth = 10;
+    int light_candidates = 4;  // RIS candidates scored per shading point before
+                                // the reservoir's one winner pays for a shadow ray
 
     double vfov = 90;              // vertical field-of-view, in degrees
     point3 lookfrom = point3(0, 0, 0);
@@ -161,60 +177,79 @@ private:
         return center + (p.x() * defocus_disk_u) + (p.y() * defocus_disk_v);
     }
 
-    // Explicit direct-light sampling (next event estimation): pick one light
-    // uniformly out of `lights`, importance-sample a direction toward it via
-    // solid-angle cone sampling (sphere.h), and trace exactly one shadow ray
-    // to verify it's actually visible. This "score a candidate cheaply, only
-    // pay for a shadow ray on the one you're using" shape is deliberately
-    // how ReSTIR's reservoir resampling works too, just with a single
-    // candidate here instead of many resampled into one reservoir - this
-    // function's noise (visible as blotchy shadows/highlights when lights
-    // are numerous) is exactly what the reservoir version is measured
-    // against.
+    // Resampled importance sampling (RIS) for direct lighting: draw
+    // `light_candidates` cheap candidates - same distribution the old
+    // single-sample version used (uniform light pick + solid-angle
+    // direction sample, sphere.h) - score each by its unshadowed
+    // contribution, and stream them through a reservoir (reservoir.h) so
+    // the one that's kept is whichever actually looked most promising.
+    // Only that winner ever pays for a shadow ray - same one-shadow-ray-
+    // per-shading-point cost as before, just aimed by up to
+    // `light_candidates` scored options instead of a single blind pick.
     color sample_direct_lighting(const hit_record& rec, const hittable& world,
                                   const std::vector<std::shared_ptr<sphere>>& lights,
                                   const color& brdf_albedo, std::mt19937& rng) const {
-        size_t light_idx = static_cast<size_t>(random_double(rng) * lights.size());
-        if (light_idx >= lights.size()) light_idx = lights.size() - 1;
-        const auto& light = lights[light_idx];
+        double num_lights = static_cast<double>(lights.size());
+        reservoir<light_sample> res;
 
-        // Solid-angle pdf of hitting this light from rec.p, *given* it was
-        // the light picked. 0 means rec.p is inside/touching the light (or
-        // otherwise degenerate) - nothing sensible to sample.
-        double pdf_dir = light->pdf_value(rec.p);
-        if (pdf_dir <= 0) return color(0, 0, 0);
+        for (int i = 0; i < light_candidates; i++) {
+            size_t idx = static_cast<size_t>(random_double(rng) * lights.size());
+            if (idx >= lights.size()) idx = lights.size() - 1;
+            const auto& light = lights[idx];
 
-        vec3 light_dir = light->random(rec.p, rng);  // unit direction, sampled within the light's cone
-        double cos_theta_surface = dot(rec.normal, light_dir);
-        if (cos_theta_surface <= 0) return color(0, 0, 0);  // light is behind the surface
+            // Solid-angle pdf of hitting this light from rec.p, *given* it
+            // was the light picked. 0 means rec.p is inside/touching the
+            // light (or otherwise degenerate) - skip this candidate rather
+            // than feeding a meaningless weight into the reservoir.
+            double pdf_dir = light->pdf_value(rec.p);
+            if (pdf_dir <= 0) continue;
 
-        // The direction was constructed to hit the light, so this recovers
-        // the exact distance to it (as a byproduct, reusing the same
-        // ray-sphere intersection sphere::hit() already implements) without
-        // needing separate geometry math.
+            vec3 light_dir = light->random(rec.p, rng);  // unit direction, sampled within the light's cone
+            double cos_theta_surface = dot(rec.normal, light_dir);
+            if (cos_theta_surface <= 0) continue;  // light is behind the surface from here
+
+            color light_emit = light->get_material()->emitted();
+            color lambertian_brdf = brdf_albedo / pi;  // Lambertian BRDF = albedo / pi
+            color unshadowed = light_emit * lambertian_brdf * cos_theta_surface;  // p_hat's basis - no shadow ray yet
+
+            // Resampling weight w_i = p_hat(x_i) / p(x_i). p_hat is this
+            // candidate's scalar "importance" (luminance of its unshadowed
+            // contribution - see vec3.h::luminance()); p(x_i) is the actual
+            // probability this exact candidate was drawn: P(pick this
+            // light) * P(this direction | light) = (1/num_lights) * pdf_dir.
+            double p_hat = luminance(unshadowed);
+            double p_src = pdf_dir / num_lights;
+            double weight = (p_src > 0) ? p_hat / p_src : 0.0;
+
+            res.update(light_sample{idx, light_dir, unshadowed}, weight, p_hat, rng);
+        }
+
+        if (res.M == 0 || res.p_hat_y <= 0) return color(0, 0, 0);  // every candidate was degenerate
+
+        // Pay for exactly one shadow ray, on the reservoir's winner only.
+        const light_sample& winner = res.y;
+        const auto& light = lights[winner.light_idx];
+
+        // The winning direction was constructed to hit its light, so this
+        // recovers the exact distance to it (reusing sphere::hit(), which
+        // already implements the intersection) without separate geometry math.
         hit_record light_hit;
-        if (!light->hit(ray(rec.p, light_dir), interval(0.001, std::numeric_limits<double>::infinity()),
+        if (!light->hit(ray(rec.p, winner.direction), interval(0.001, std::numeric_limits<double>::infinity()),
                          light_hit)) {
             return color(0, 0, 0);  // shouldn't happen; guard against float edge cases
         }
 
-        ray shadow_ray(rec.p, light_dir);
+        ray shadow_ray(rec.p, winner.direction);
         hit_record shadow_rec;
         if (world.hit(shadow_ray, interval(0.001, light_hit.t - 0.001), shadow_rec)) {
             return color(0, 0, 0);  // something else sits between the surface and the light
         }
 
-        color light_emit = light->get_material()->emitted();
-        color lambertian_brdf = brdf_albedo / pi;  // Lambertian BRDF = albedo / pi
-        double num_lights = static_cast<double>(lights.size());
-
-        // Monte Carlo estimator for the direct-lighting integral:
-        // Le * BRDF * cos(theta) / pdf(direction). pdf_dir is the pdf
-        // *given* this light was picked; picking it happened with
-        // probability 1/num_lights, so the combined pdf is pdf_dir /
-        // num_lights - dividing by that is the same as multiplying by
-        // num_lights, which is what appears below.
-        return light_emit * lambertian_brdf * cos_theta_surface * num_lights / pdf_dir;
+        // RIS estimator: L_direct ~= f(y) * W_y. f(y) is the true,
+        // shadow-verified contribution - here that's just `unshadowed`
+        // again, since we've now confirmed nothing blocks it; W_y is the
+        // reservoir's own bookkeeping resolving to the unbiased weight.
+        return winner.unshadowed * res.W();
     }
 
     // The heart of the path tracer: intersect, shade, recurse.
