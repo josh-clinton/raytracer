@@ -61,3 +61,65 @@ regenerated on every run - they're not meant to be hand-edited, and results
 will differ by machine (this is timing-sensitive, so don't expect your
 numbers to match anyone else's exactly, including the ones checked into
 this repo from whatever machine last ran it).
+
+# MSE sweep (direct-lighting quality, not speed)
+
+A separate, unrelated sweep: `mse_sweep.py` (driving `mse_sweep.cpp`)
+measures direct-lighting *quality* - MSE against a high-spp reference - for
+`camera.h`'s three direct-lighting configurations, across scenes with
+different light counts and at different samples-per-pixel budgets:
+
+- **baseline** - `light_candidates=1`, `spatial_neighbors=0`: mathematically
+  the pre-RIS behavior, a single blind uniform light pick per shading point.
+- **reservoir** - `light_candidates=4`, `spatial_neighbors=0`: RIS/weighted
+  reservoir sampling only.
+- **spatial** - `light_candidates=4`, `spatial_neighbors=4`: RIS plus
+  spatial reuse of neighboring pixels' reservoirs.
+
+```bash
+# from the repo root, after building the project (see above):
+cd benchmarks
+python3 mse_sweep.py --quick                                          # fast smoke test
+python3 mse_sweep.py --light-counts 1,4,12,32 --spp 4,16,64 --repeats 3   # a real run, a few minutes
+```
+
+Each light count gets its own scene (a field of diffuse/metal/glass
+spheres, same as the project's main scene, plus a ring of that many small
+emissive spheres) and its own reference render (spatial reuse forced off,
+so ground truth doesn't inherit its documented small-bias simplification -
+see `spatially_combined_reservoir()` in `camera.h`). Every test render at
+that light count reuses the same scene seed as its reference, so geometry
+is pixel-identical across configs; repeats still get independent Monte
+Carlo noise, since `camera.h` seeds its per-thread RNG from system entropy,
+not from the scene seed.
+
+## Output
+
+```
+results/mse_raw.csv         every individual run (one row per repeat)
+results/mse_summary.csv     mean/std MSE per (light_count, spp, config)
+results/ref_cache/*.ppm     cached reference renders, reused across runs
+charts/mse_vs_spp.png       one panel per light count, MSE vs. spp
+charts/mse_vs_lights.png    one panel per spp, MSE vs. light count
+MSE_RESULTS.md              the charts + a summary table, generated fresh each run
+```
+
+`results/ref_cache/` is keyed by light count, width, and ref spp, so a
+second run with the same settings skips re-rendering references - delete
+that folder to force a fresh reference. As with `sweep.py`, everything
+under `results/`, `charts/`, and `MSE_RESULTS.md` is regenerated on every
+run and will differ by machine and by scene RNG draw.
+
+### Reading the result
+
+At 1 light, all three configs land on top of each other - there's only one
+light to pick, so neither RIS nor spatial reuse has anything to do. As
+light count grows, `reservoir`'s MSE advantage over `baseline` grows with
+it (a 3-4 spot check: roughly even at 1-4 lights, ~1.1-1.3x lower MSE at 12
+lights, ~1.3-2x lower at 32 lights across the sampled spp range) - the
+larger the light pool, the worse a blind uniform pick gets, and the more
+RIS's scored candidates pay off. `spatial`'s further improvement over
+`reservoir` alone is real but modest and noisier in this scene, consistent
+with the spatial-reuse commit's own note that a dense field of small,
+differently-shaded spheres trips the normal/depth reject checks often,
+correctly refusing to reuse across nearby discontinuities.

@@ -13,3 +13,6 @@ find_package(Threads REQUIRED)
 
 add_executable(raytracer src/main.cpp)
 target_link_libraries(raytracer PRIVATE Threads::Threads)
+
+add_executable(mse_sweep benchmarks/mse_sweep.cpp)
+target_link_libraries(mse_sweep PRIVATE Threads::Threads)

@@ -24,6 +24,14 @@ progression is visible.
   Cards are marked shipped (today's next-event-estimation baseline in
   `camera.h::sample_direct_lighting()`) or planned (the reservoir-based
   version it's being measured against, `LEARNING_ROADMAP.md`'s next step).
+- **`spatial_reuse_explainer.html`** — a diagrammed walkthrough of spatial
+  reuse specifically, in the same spirit as `bvh_diagram.html`: why it needs
+  two passes instead of one (`trace_primary()`/`finish_pixel()`), what phase
+  A builds vs. what phase B resolves, the normal/depth reject checks that
+  decide which neighbors are even eligible, why a candidate has to be
+  re-evaluated (`rescored()`) rather than reused as-is, and what
+  `reservoir::combine()` is actually doing - closing with the measured
+  MSE/convergence numbers from the "Add spatial reuse..." commit.
 
 The `.html` files are self-contained — open any of them directly in a
 browser, no build step or server needed.
