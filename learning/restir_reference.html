@@ -1,0 +1,930 @@
+<title>ReSTIR Math Reference</title>
+<style>
+  :root {
+    --bg: #f3f5f7;
+    --surface: #ffffff;
+    --surface-2: #eceff2;
+    --text: #14181d;
+    --text-muted: #5b6570;
+    --border: #dbe1e6;
+    --accent: #c06a2c;
+    --accent-ink: #7a4319;
+    --accent-soft: #f2e3d5;
+    --sky: #4f7fb0;
+    --code-bg: #0f1215;
+    --code-text: #dce3e9;
+    --planned: #6a5fae;
+    --planned-soft: #eae7f7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0d10;
+      --surface: #14171b;
+      --surface-2: #191d22;
+      --text: #eef1f4;
+      --text-muted: #9aa4ad;
+      --border: #262b31;
+      --accent: #e0954f;
+      --accent-ink: #f6cda2;
+      --accent-soft: #2c2116;
+      --sky: #7fb0e8;
+      --code-bg: #08090b;
+      --code-text: #cbd3da;
+      --planned: #a79ce0;
+      --planned-soft: #221f30;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0b0d10;
+    --surface: #14171b;
+    --surface-2: #191d22;
+    --text: #eef1f4;
+    --text-muted: #9aa4ad;
+    --border: #262b31;
+    --accent: #e0954f;
+    --accent-ink: #f6cda2;
+    --accent-soft: #2c2116;
+    --sky: #7fb0e8;
+    --code-bg: #08090b;
+    --code-text: #cbd3da;
+    --planned: #a79ce0;
+    --planned-soft: #221f30;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.6;
+  }
+
+  .mono { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace; }
+
+  h1, h2, h3 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    color: var(--text);
+  }
+
+  a { color: var(--sky); }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---------- header ---------- */
+
+  header.top {
+    padding: 44px 24px 20px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+
+  header.top h1 { font-size: clamp(1.7rem, 3.6vw, 2.3rem); margin: 0 0 10px; }
+
+  header.top p.dek {
+    max-width: 640px;
+    margin: 0 auto;
+    color: var(--text-muted);
+    font-size: 1rem;
+  }
+
+  .hint {
+    max-width: 640px;
+    margin: 14px auto 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .hint .k { font-family: "IBM Plex Mono", monospace; color: var(--accent-ink); }
+
+  .status-key {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .status-pill {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    border-radius: 999px;
+    padding: 3px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .status-pill.shipped { color: var(--accent-ink); background: var(--accent-soft); }
+  .status-pill.planned { color: var(--planned); background: var(--planned-soft); }
+
+  /* ---------- section nav ---------- */
+
+  nav.sections {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  nav.sections a {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.76rem;
+    text-decoration: none;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    white-space: nowrap;
+  }
+  nav.sections a:hover { color: var(--accent-ink); border-color: var(--accent); }
+
+  /* ---------- legend ---------- */
+
+  section.legend { margin-top: 44px; }
+
+  section.legend h2, section > h2.section-head {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 18px;
+  }
+
+  .section-intro {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    margin: -8px 0 20px;
+  }
+
+  .table-scroll { overflow-x: auto; }
+
+  table.legend-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 0.92rem;
+  }
+
+  table.legend-table th {
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  table.legend-table td {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.legend-table tr:last-child td { border-bottom: none; }
+  table.legend-table td.sym { width: 64px; font-size: 1.02rem; }
+  table.legend-table td.note { color: var(--text-muted); font-size: 0.86rem; }
+
+  /* ---------- formula groups ---------- */
+
+  section.group { margin-top: 52px; scroll-margin-top: 64px; }
+
+  .formulas { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  .formula-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 22px 16px;
+    min-width: 0;
+  }
+
+  .formula-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .formula-title { font-size: 0.92rem; font-weight: 600; color: var(--text); }
+
+  .formula-tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 2px 8px;
+    white-space: nowrap;
+  }
+  .formula-tag.planned {
+    color: var(--planned);
+    background: var(--planned-soft);
+  }
+
+  .formula-math {
+    overflow-x: auto;
+    padding: 6px 0 4px;
+    font-size: 1.05rem;
+  }
+
+  .formula-caption { color: var(--text-muted); font-size: 0.88rem; margin-top: 8px; }
+
+  /* ---------- per-formula expander (usage / worked example / why) ---------- */
+
+  .formula-details {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+
+  .formula-details summary {
+    cursor: pointer;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.76rem;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+    user-select: none;
+  }
+  .formula-details summary::-webkit-details-marker { display: none; }
+  .formula-details summary:hover { color: var(--accent-ink); }
+  .formula-details summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  .formula-details summary .chevron {
+    display: inline-block;
+    transition: transform 0.15s ease;
+    color: var(--accent);
+    font-size: 0.7rem;
+  }
+  .formula-details[open] summary .chevron { transform: rotate(90deg); }
+
+  .details-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 16px;
+    padding-left: 2px;
+    min-width: 0;
+  }
+
+  .details-block { min-width: 0; }
+
+  .details-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sky);
+    margin-bottom: 7px;
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 6px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    line-height: 1.55;
+  }
+  .code-block .hl-line {
+    display: inline-block;
+    width: 100%;
+    background: rgba(224, 149, 79, 0.16);
+    border-left: 2px solid var(--accent);
+    margin-left: -14px;
+    padding-left: 12px;
+  }
+
+  .details-example { font-size: 0.95rem; overflow-x: auto; }
+  .details-example mjx-container { max-width: 100%; }
+  .details-example .ex-given {
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    margin-bottom: 2px;
+  }
+  .details-example .ex-step {
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    margin: 2px 0;
+  }
+  .details-example .ex-result {
+    color: var(--text);
+    font-size: 0.86rem;
+    margin-top: 2px;
+  }
+  .details-example .ex-result .mono { color: var(--accent-ink); }
+
+  .details-why { color: var(--text-muted); font-size: 0.88rem; margin: 0; }
+  .details-why .mono { color: var(--text); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  @media (max-width: 620px) {
+    .formula-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+  }
+
+  /* ---------- hoverable variables + tooltip ---------- */
+
+  .mjxvar { pointer-events: bounding-box; }
+  .mjxvar.mjxvar-active, .mjxvar:focus {
+    color: var(--accent);
+    fill: var(--accent);
+  }
+
+  .var-tooltip {
+    position: absolute;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, calc(-100% - 10px));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 10px 28px rgba(20, 24, 29, 0.18);
+    font-size: 0.86rem;
+    max-width: 260px;
+    width: max-content;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease;
+  }
+  .var-tooltip.visible { opacity: 1; visibility: visible; }
+  .var-tooltip .vt-sym {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 1.05rem;
+    color: var(--accent-ink);
+    margin-bottom: 4px;
+  }
+  .var-tooltip .vt-meaning { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .var-tooltip .vt-note { color: var(--text-muted); font-size: 0.8rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .var-tooltip { transition: none; }
+  }
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script>
+  window.MathJax = {
+    loader: { load: ['[tex]/html'] },
+    tex: { packages: { '[+]': ['html'] } }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+
+<header class="top">
+  <p class="eyebrow">Reference sheet &middot; companion to formula_reference.html, part 2</p>
+  <h1>ReSTIR Math Reference</h1>
+  <p class="dek">Weighted reservoir sampling, resampled importance sampling, and spatiotemporal reuse &mdash; the math behind making "which of many lights should this pixel sample?" cheap, in standard notation, with a symbol legend and a worked numeric example for each formula.</p>
+  <div class="hint"><span class="k">hover</span> any variable in a formula to see its definition</div>
+  <div class="status-key">
+    <span class="status-pill shipped">&#9679; shipped in src/ today</span>
+    <span class="status-pill planned">&#9679; planned &mdash; next project step</span>
+  </div>
+</header>
+
+<nav class="sections">
+  <a href="#legend">Legend</a>
+  <a href="#problem">The Problem</a>
+  <a href="#ris">Resampled Importance Sampling</a>
+  <a href="#reservoir">Weighted Reservoir Sampling</a>
+  <a href="#spatial">Spatial Reuse</a>
+  <a href="#temporal">Temporal Reuse</a>
+  <a href="#bias">Bias &amp; Correction</a>
+</nav>
+
+<div class="wrap">
+
+  <section class="legend" id="legend">
+    <h2>Symbol legend</h2>
+    <div class="table-scroll">
+      <table class="legend-table">
+        <thead><tr><th>Symbol</th><th>Meaning</th><th>Notes</th></tr></thead>
+        <tbody id="legend-body"><!-- populated from VAR_DEFS below --></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="group" id="problem">
+    <h2 class="section-head">The problem: many lights, one shadow ray budget</h2>
+    <p class="section-intro">Direct lighting at a shading point is an integral over every light in the scene. With a handful of lights you can just sample all of them. With hundreds, you can't &mdash; so you have to pick, and picking well is the entire problem ReSTIR exists to solve.</p>
+    <div class="formulas">
+
+      <div class="formula-card" id="f-direct-integral">
+        <div class="formula-head"><span class="formula-title">Direct lighting integral</span><span class="formula-tag">the target quantity</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-Ldirect}{L_{\text{direct}}}(\class{mjxvar v-p}{p}, \class{mjxvar v-wo}{\omega_o}) = \int_{\Omega} \class{mjxvar v-Le}{L_e}(\class{mjxvar v-wi}{\omega_i})\, \class{mjxvar v-fr}{f_r}(\class{mjxvar v-p}{p},\class{mjxvar v-wi}{\omega_i},\class{mjxvar v-wo}{\omega_o})\, \class{mjxvar v-cos}{\cos\theta_i} \; d\class{mjxvar v-wi}{\omega_i} \]</div>
+        <p class="formula-caption">Sum the light arriving from every direction in the hemisphere \(\Omega\), weighted by the BRDF and the cosine term. With many small lights, almost all of \(\Omega\) contributes nothing &mdash; the integral is dominated by a few narrow solid angles you have to actually find.</p>
+      </div>
+
+      <div class="formula-card" id="f-naive-nee">
+        <div class="formula-head"><span class="formula-title">Single-sample NEE estimator (uniform light pick)</span><span class="formula-tag">camera.h :: sample_direct_lighting()</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-Ldirect}{L_{\text{direct}}} \approx \class{mjxvar v-numlights}{N_{\ell}} \cdot \frac{\class{mjxvar v-Le}{L_e}\, \class{mjxvar v-fr}{f_r}\, \class{mjxvar v-cos}{\cos\theta_i}}{\class{mjxvar v-pdfdir}{p_{\text{dir}}}} \]</div>
+        <p class="formula-caption">Pick one of \(N_\ell\) lights uniformly, importance-sample a direction toward it, trace one shadow ray. Unbiased, and exactly what shipped in today's code &mdash; but noisy once \(N_\ell\) is large, because most picks are for a light that barely matters at this point.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="group" id="ris">
+    <h2 class="section-head">Resampled importance sampling (RIS)</h2>
+    <p class="section-intro">RIS is the trick that makes "many lights" affordable: score several cheap candidates against an ideal target distribution you can't sample directly, then keep one, weighted so the result is still unbiased.</p>
+    <div class="formulas">
+
+      <div class="formula-card" id="f-ris-weight">
+        <div class="formula-head"><span class="formula-title">Resampling weight</span><span class="formula-tag planned">planned &middot; reservoir.h</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-wiw}{w_i} = \frac{\class{mjxvar v-phat}{\hat p}(\class{mjxvar v-xi2}{x_i})}{\class{mjxvar v-psrc}{p}(\class{mjxvar v-xi2}{x_i})} \]</div>
+        <p class="formula-caption">\(x_i\) are candidates drawn cheaply from an easy distribution \(p\) (e.g. uniform over lights, same as today's NEE). \(\hat p\) is a cheap-to-evaluate stand-in for the true integrand &mdash; typically the <em>unshadowed</em> contribution \(L_e f_r \cos\theta\), no shadow ray yet. \(w_i\) scores each candidate by how much better \(\hat p\) thinks it is than \(p\) already assumed.</p>
+      </div>
+
+      <div class="formula-card" id="f-ris-estimator">
+        <div class="formula-head"><span class="formula-title">RIS estimator</span><span class="formula-tag planned">planned &middot; reservoir.h</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-Ldirect}{L_{\text{direct}}} \approx \class{mjxvar v-fy}{f(y)} \cdot \class{mjxvar v-Wy}{W_y}, \qquad \class{mjxvar v-Wy}{W_y} = \frac{1}{\class{mjxvar v-phat}{\hat p}(\class{mjxvar v-y}{y})}\left(\frac{1}{\class{mjxvar v-M}{M}}\sum_{i=1}^{\class{mjxvar v-M}{M}} \class{mjxvar v-wiw}{w_i}\right) \]</div>
+        <p class="formula-caption">Pick one candidate \(y\) from the \(M\) candidates with probability proportional to \(w_i\) (weighted reservoir sampling, next section), then pay for exactly one true, expensive evaluation \(f(y)\) &mdash; the one that includes the shadow ray. \(W_y\) corrects for the biased way \(y\) was chosen, keeping the whole thing unbiased.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="group" id="reservoir">
+    <h2 class="section-head">Weighted reservoir sampling (WRS)</h2>
+    <p class="section-intro">The streaming algorithm that picks "one sample, weighted by \(w_i\)" out of a sequence without ever storing more than one candidate at a time &mdash; which is exactly what makes it cheap enough to merge across pixels and frames later.</p>
+    <div class="formulas">
+
+      <div class="formula-card" id="f-reservoir-update">
+        <div class="formula-head"><span class="formula-title">Streaming update rule</span><span class="formula-tag planned">planned &middot; reservoir.h :: update()</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-wsum}{w_{\text{sum}}} \mathrel{+}= \class{mjxvar v-wiw}{w_i}, \qquad \class{mjxvar v-M}{M} \mathrel{+}= 1, \qquad \class{mjxvar v-y}{y} \leftarrow \begin{cases} \class{mjxvar v-xi2}{x_i} & \text{with prob. } \class{mjxvar v-wiw}{w_i} / \class{mjxvar v-wsum}{w_{\text{sum}}} \\ \class{mjxvar v-y}{y} & \text{otherwise} \end{cases} \]</div>
+        <p class="formula-caption">Process candidates one at a time, in any order, keeping only three numbers: the current pick \(y\), the running weight total \(w_{\text{sum}}\), and the count \(M\). After every candidate has streamed through, \(y\) is exactly distributed proportional to its weight among all of them &mdash; a provable result, and the reason this composes (a whole reservoir can be re-fed into another one as if it were a single candidate; see Spatial Reuse).</p>
+      </div>
+
+      <div class="formula-card" id="f-reservoir-weight">
+        <div class="formula-head"><span class="formula-title">Final unbiased contribution weight</span><span class="formula-tag planned">planned &middot; reservoir.h</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-Wy}{W_y} = \frac{\class{mjxvar v-wsum}{w_{\text{sum}}}}{\class{mjxvar v-M}{M} \cdot \class{mjxvar v-phat}{\hat p}(\class{mjxvar v-y}{y})} \]</div>
+        <p class="formula-caption">Read straight off the reservoir's own bookkeeping once streaming is done &mdash; no separate pass over the candidates needed. Multiply by \(f(y)\) (the one true, shadow-ray-verified evaluation) to get the pixel's direct-lighting estimate.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="group" id="spatial">
+    <h2 class="section-head">Spatial reuse</h2>
+    <p class="section-intro">The payoff step: after every pixel builds its own small reservoir (say \(M=4\) candidates), pull in a few neighboring pixels' already-chosen samples as if they were additional candidates. Neighboring pixels usually shade similar geometry, so a good pick for one is usually a good pick nearby too.</p>
+    <div class="formulas">
+
+      <div class="formula-card" id="f-spatial-combine">
+        <div class="formula-head"><span class="formula-title">Combining a neighbor's reservoir</span><span class="formula-tag planned">planned &middot; reservoir.h :: combine()</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-wcombine}{w} = \class{mjxvar v-phatcur}{\hat p_{\text{here}}}(\class{mjxvar v-yn}{y_n}) \cdot \class{mjxvar v-Wn}{W_n} \cdot \class{mjxvar v-Mn}{M_n} \]</div>
+        <p class="formula-caption">Re-score the neighbor's chosen sample \(y_n\) under <em>this</em> pixel's own target function \(\hat p_{\text{here}}\) (different shading point, so a different \(\hat p\)) instead of trusting the neighbor's score as-is, then feed \((y_n, w)\) into this pixel's reservoir via the ordinary streaming update rule above. \(M\) accumulates too (\(M \mathrel{+}= M_n\)), so a reservoir that's absorbed several neighbors effectively remembers how many total candidates it represents.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="group" id="temporal">
+    <h2 class="section-head">Temporal reuse</h2>
+    <p class="section-intro">Exactly the same combine operation as spatial reuse, but across frames instead of across pixels: reproject the current pixel into last frame's position and merge in its reservoir. This is the "T" in ReSTIR, and it's what lets a handful of fresh candidates per frame compound into an effective sample count in the hundreds.</p>
+    <div class="formulas">
+
+      <div class="formula-card" id="f-temporal-clamp">
+        <div class="formula-head"><span class="formula-title">M-capping (bounding temporal lag)</span><span class="formula-tag planned">planned &middot; reservoir.h</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-Mprev}{M_{\text{prev}}} \leftarrow \min\bigl(\class{mjxvar v-Mprev}{M_{\text{prev}}},\; \class{mjxvar v-kcap}{k} \cdot \class{mjxvar v-Mcur}{M_{\text{cur}}}\bigr) \]</div>
+        <p class="formula-caption">Without this, a reservoir's \(M\) grows every frame forever, so last frame's sample eventually outweighs this frame's brand-new candidates by a huge margin &mdash; the image stops responding to a light turning on, an object moving, anything changing. Clamping \(M_{\text{prev}}\) to some multiple \(k\) (Bitterli et al. use around 20) of this frame's own candidate count bounds how much history one merge can carry, trading a little variance for responsiveness.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="group" id="bias">
+    <h2 class="section-head">Bias &amp; correction</h2>
+    <div class="formulas">
+
+      <div class="formula-card" id="f-bias-note">
+        <div class="formula-head"><span class="formula-title">Why naive reuse isn't quite unbiased</span><span class="formula-tag planned">good to know, not needed for a first pass</span></div>
+        <div class="formula-math">\[ \class{mjxvar v-phatcur}{\hat p_{\text{here}}} \neq \class{mjxvar v-phatn}{\hat p_{\text{neighbor}}} \]</div>
+        <p class="formula-caption">Every shading point technically has its own target function \(\hat p\) (different BRDF, normal, distance to the light), and reusing a neighbor's sample without a geometric correction term (a Jacobian, since the sampling domain implicitly shifts) introduces a small systematic error. Bitterli et al. 2020 show the biased-but-practical version first, then derive an unbiased correction using a generalized multiple-importance-sampling weight across every reservoir being combined. The bias is usually small and visually acceptable for a first working version &mdash; worth knowing about, not worth building before spatial/temporal reuse even works.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    Companion to <span class="mono">formula_reference.html</span> &mdash; the part-1 renderer's formula reference. This page covers the math for the ReSTIR direct-lighting pass planned as the next project increment (see <span class="mono">LEARNING_ROADMAP.md</span>); "shipped" cards describe <span class="mono">src/camera.h::sample_direct_lighting()</span>, the naive-NEE baseline this next step is measured against.
+  </footer>
+
+</div>
+
+<div id="var-tooltip" class="var-tooltip" role="tooltip" aria-hidden="true"></div>
+
+<script>
+(function () {
+  // Single source of truth for every symbol's definition - both the legend
+  // table below and every hover tooltip on the page read from this object.
+  var VAR_DEFS = {
+    'v-p':         { sym: 'p',                    meaning: 'Shading point',                                note: 'A point on a surface in world space' },
+    'v-wo':        { sym: '\\omega_o',             meaning: 'Outgoing direction',                           note: 'Toward the camera/previous bounce' },
+    'v-wi':        { sym: '\\omega_i',             meaning: 'Incoming direction',                           note: 'The direction being integrated/sampled over' },
+    'v-Le':        { sym: 'L_e',                   meaning: 'Emitted radiance',                             note: "A light's own emitted() color" },
+    'v-fr':        { sym: 'f_r',                   meaning: 'BRDF',                                         note: 'For Lambertian: albedo / \\(\\pi\\)' },
+    'v-cos':       { sym: '\\cos\\theta_i',        meaning: 'Cosine term',                                  note: 'Angle between the surface normal and \\(\\omega_i\\)' },
+    'v-Ldirect':   { sym: 'L_{\\text{direct}}',    meaning: 'Direct lighting estimate',                     note: 'What ReSTIR DI exists to compute cheaply' },
+    'v-numlights': { sym: 'N_{\\ell}',              meaning: 'Number of lights in the scene',                note: 'lights.size() in the code' },
+    'v-pdfdir':    { sym: 'p_{\\text{dir}}',        meaning: "Solid-angle pdf of the sampled direction",     note: 'sphere.h :: pdf_value() - given which light was picked' },
+    'v-xi2':       { sym: 'x_i',                    meaning: 'The \\(i\\)-th candidate sample',              note: 'e.g. one (light, direction) pick' },
+    'v-psrc':      { sym: 'p',                     meaning: 'Source (proposal) pdf',                        note: 'The easy distribution candidates are actually drawn from' },
+    'v-phat':      { sym: '\\hat p',                meaning: 'Target function',                              note: 'Cheap stand-in for the true integrand - usually unshadowed contribution' },
+    'v-phatcur':   { sym: '\\hat p_{\\text{here}}', meaning: "This pixel's own target function",             note: 'Depends on this exact shading point' },
+    'v-phatn':     { sym: '\\hat p_{\\text{neighbor}}', meaning: "The neighbor pixel's target function",     note: 'Technically different from \\(\\hat p_{\\text{here}}\\)' },
+    'v-wiw':       { sym: 'w_i',                    meaning: 'Resampling weight',                            note: '\\(\\hat p(x_i) / p(x_i)\\)' },
+    'v-y':         { sym: 'y',                      meaning: "The reservoir's chosen sample",                note: 'Selected with probability proportional to its weight' },
+    'v-yn':        { sym: 'y_n',                    meaning: "A neighbor reservoir's chosen sample",         note: 'Reused as one candidate for this pixel' },
+    'v-fy':        { sym: 'f(y)',                   meaning: 'True contribution of the winning sample',      note: 'The one evaluation that pays for a shadow ray' },
+    'v-Wy':        { sym: 'W_y',                    meaning: 'Unbiased contribution weight',                 note: '\\(w_{\\text{sum}} / (M \\cdot \\hat p(y))\\)' },
+    'v-Wn':        { sym: 'W_n',                    meaning: "Neighbor reservoir's contribution weight",     note: 'Already stored on the neighbor, no recomputation needed' },
+    'v-wsum':      { sym: 'w_{\\text{sum}}',        meaning: 'Running weight total',                         note: "The reservoir's only running sum" },
+    'v-M':         { sym: 'M',                      meaning: 'Candidate count',                              note: 'How many candidates this reservoir represents' },
+    'v-Mn':        { sym: 'M_n',                    meaning: "Neighbor reservoir's candidate count",         note: 'Absorbed into this reservoir\u2019s own \\(M\\) on combine' },
+    'v-Mprev':     { sym: 'M_{\\text{prev}}',       meaning: "Previous frame's reservoir count",              note: 'Clamped before merging, to bound temporal lag' },
+    'v-Mcur':      { sym: 'M_{\\text{cur}}',        meaning: "This frame's fresh candidate count",           note: 'Typically small, e.g. 4' },
+    'v-kcap':      { sym: 'k',                      meaning: 'Temporal history cap multiplier',              note: 'Bitterli et al. use \\(k \\approx 20\\)' },
+    'v-wcombine':  { sym: 'w',                      meaning: 'Effective candidate weight for a merge',       note: 'Treats a whole reservoir as one weighted candidate' }
+  };
+
+  // Populate the legend table from VAR_DEFS. This runs synchronously while
+  // the document is still being parsed, so the \(...\) it injects gets
+  // picked up by MathJax's normal automatic pass over the page.
+  var rows = [];
+  for (var key in VAR_DEFS) {
+    var d = VAR_DEFS[key];
+    rows.push(
+      '<tr><td class="sym">\\(' + d.sym + '\\)</td><td>' + d.meaning + '</td><td class="note">' + d.note + '</td></tr>'
+    );
+  }
+  document.getElementById('legend-body').innerHTML = rows.join('');
+
+  // Hover (and tap, for touch) tooltip for any \class{mjxvar v-KEY}{...}
+  // tagged symbol anywhere on the page. Hit-testing is done manually in JS
+  // (rather than relying on native :hover) so each symbol gets a padded
+  // hover margin beyond its own tight rendered pixels - many of these
+  // glyphs are thin, and hovering "close enough" should still register
+  // instead of demanding a pixel-perfect hit.
+  var tooltip = document.getElementById('var-tooltip');
+  var activeEl = null;
+  var HOVER_PAD = 6; // px of extra hover margin around each symbol, in every direction
+
+  var varEls = [];
+  function refreshVarEls() {
+    varEls = Array.prototype.slice.call(document.getElementsByClassName('mjxvar'));
+  }
+  refreshVarEls();
+  window.addEventListener('load', function () { setTimeout(refreshVarEls, 400); });
+
+  function findVarAt(x, y) {
+    if (varEls.length === 0) refreshVarEls();
+    for (var i = 0; i < varEls.length; i++) {
+      var r = varEls[i].getBoundingClientRect();
+      if (x >= r.left - HOVER_PAD && x <= r.right + HOVER_PAD &&
+          y >= r.top - HOVER_PAD && y <= r.bottom + HOVER_PAD) {
+        return varEls[i];
+      }
+    }
+    return null;
+  }
+
+  function keyFor(el) {
+    for (var i = 0; i < el.classList.length; i++) {
+      if (VAR_DEFS[el.classList[i]]) return el.classList[i];
+    }
+    return null;
+  }
+
+  function showTooltip(el) {
+    var key = keyFor(el);
+    if (!key) return;
+    var d = VAR_DEFS[key];
+    tooltip.innerHTML =
+      '<div class="vt-sym">\\(' + d.sym + '\\)</div>' +
+      '<div class="vt-meaning">' + d.meaning + '</div>' +
+      '<div class="vt-note">' + d.note + '</div>';
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([tooltip]);
+
+    if (activeEl) activeEl.classList.remove('mjxvar-active');
+    el.classList.add('mjxvar-active');
+
+    var rect = el.getBoundingClientRect();
+    tooltip.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
+    tooltip.style.top = (rect.top + window.scrollY) + 'px';
+    tooltip.classList.add('visible');
+    tooltip.setAttribute('aria-hidden', 'false');
+    document.body.style.cursor = 'help';
+    activeEl = el;
+  }
+
+  function hideTooltip() {
+    if (activeEl) activeEl.classList.remove('mjxvar-active');
+    tooltip.classList.remove('visible');
+    tooltip.setAttribute('aria-hidden', 'true');
+    document.body.style.cursor = '';
+    activeEl = null;
+  }
+
+  document.addEventListener('mousemove', function (e) {
+    var el = findVarAt(e.clientX, e.clientY);
+    if (el) {
+      if (el !== activeEl) showTooltip(el);
+    } else if (activeEl) {
+      hideTooltip();
+    }
+  });
+
+  document.addEventListener('touchstart', function (e) {
+    var t = e.touches[0];
+    var el = findVarAt(t.clientX, t.clientY);
+    if (el) {
+      e.preventDefault();
+      if (activeEl === el) hideTooltip(); else showTooltip(el);
+    } else if (activeEl) {
+      hideTooltip();
+    }
+  }, { passive: false });
+})();
+</script>
+
+<script>
+(function () {
+  // Per-formula "usage / worked example / why it matters" expanders.
+  // Single source of truth, same pattern as VAR_DEFS above: keyed by the
+  // formula-card's id, injected as a <details> block appended to that card.
+  var DETAILS = {
+
+    'f-direct-integral': {
+      code: {
+        file: 'the target quantity (not code - what every direct-lighting technique on this page approximates)',
+        lines:
+`// No single line of code "is" this integral - it's the quantity
+// sample_direct_lighting() (today's baseline) and the planned
+// reservoir.h both approximate with a small number of samples.`
+      },
+      example:
+        '<div class="ex-given">This project\'s scene has \\(N_\\ell = 2\\) lights. A shading point sees both, but at very different solid angles and distances - the integral over \\(\\Omega\\) is really just two narrow "bright spots" plus zero everywhere else:</div>' +
+        '<div class="ex-result">Exactly evaluating this integral means summing every light\'s contribution. With 2 lights that\'s cheap (do both, every sample). With 2,000 it isn\'t - you have to guess which ones matter, which is exactly the problem RIS and reservoirs solve.</div>',
+      why:
+        'Every formula on the rest of this page is an approximation strategy for this one integral - naive NEE (today\'s shipped code), then RIS, then reservoirs, then spatial/temporal reuse each trade a bit more bookkeeping for a lot less noise at the same sample count.'
+    },
+
+    'f-naive-nee': {
+      code: {
+        file: 'camera.h :: sample_direct_lighting()',
+        lines:
+`double pdf_dir = light->pdf_value(rec.p);
+vec3 light_dir = light->random(rec.p, rng);
+double cos_theta_surface = dot(rec.normal, light_dir);
+// ...shadow ray, then:
+color lambertian_brdf = brdf_albedo / pi;
+double num_lights = static_cast<double>(lights.size());
+@@return light_emit * lambertian_brdf * cos_theta_surface * num_lights / pdf_dir;`
+      },
+      example:
+        '<div class="ex-given">This project\'s own scene: shading point \\(p=(0,0,0)\\) on the ground (normal \\((0,1,0)\\)), light1 at \\(C=(0,5,4)\\), radius \\(0.7\\), color \\((6,6,6)\\); ground albedo \\((0.5,0.5,0.5)\\); \\(N_\\ell=2\\):</div>' +
+        '\\[ \\text{dist}^2 = 5^2+4^2 = 41, \\qquad \\cos\\theta_{\\max} = \\sqrt{1 - 0.7^2/41} = 0.9940 \\]' +
+        '<div class="ex-step">solid angle \\(= 2\\pi(1-0.9940) = 0.03766 \\Rightarrow p_{\\text{dir}} = 1/0.03766 = 26.55\\)</div>' +
+        '\\[ \\omega_i = (0,5,4)/\\sqrt{41} = (0,\\,0.7809,\\,0.6247), \\qquad \\cos\\theta_i = (0,1,0)\\cdot\\omega_i = 0.7809 \\]' +
+        '<div class="ex-step">\\(f_r = 0.5/\\pi = 0.1592\\)</div>' +
+        '\\[ L_{\\text{direct}} \\approx 6 \\times 0.1592 \\times 0.7809 \\times 2 \\,/\\, 26.55 = 0.0562 \\]' +
+        '<div class="ex-result">One NEE sample contributes about <span class="mono">(0.056, 0.056, 0.056)</span> to that pixel sample\'s running total - assuming the shadow ray came back clear.</div>',
+      why:
+        'This is the noisy-but-unbiased baseline shipped today. It picks the light with probability \\(1/N_\\ell = 1/2\\) regardless of whether that light actually matters at this point - with 2 lights that\'s a coin flip either way is fine, but the same scheme with 200 lights would waste 199 out of 200 shadow rays on lights contributing almost nothing. That\'s precisely the gap RIS closes: scoring candidates by \\(\\hat p\\) before committing a shadow ray to one.'
+    },
+
+    'f-ris-weight': {
+      code: {
+        file: 'reservoir.h (planned)',
+        lines:
+`// For each candidate light/direction pick x_i, drawn from the same
+// easy distribution p() this project's NEE already uses:
+double p_hat = unshadowed_contribution(x_i);  // Le * brdf * cos, no shadow ray
+double p_src = 1.0 / num_lights;              // uniform light pick, same as today
+@@double w_i = p_hat / p_src;`
+      },
+      example:
+        '<div class="ex-given">3 candidate light picks, each drawn with \\(p(x_i) = 1/3\\) (uniform over 3 lights), with unshadowed contributions \\(\\hat p_1 = 0.02\\), \\(\\hat p_2 = 0.15\\), \\(\\hat p_3 = 0.05\\):</div>' +
+        '\\[ w_1 = 0.02/(1/3) = 0.06, \\qquad w_2 = 0.15/(1/3) = 0.45, \\qquad w_3 = 0.05/(1/3) = 0.15 \\]' +
+        '<div class="ex-result">Candidate 2 - visibly the brightest-looking light before any shadow ray is traced - gets 7.5&times; candidate 1\'s weight, so the reservoir below is far more likely to keep it.</div>',
+      why:
+        'This is the score every candidate carries into the reservoir update. Crucially, computing \\(\\hat p\\) for all 3 candidates here is still cheap (no shadow rays) - the expensive step only happens once, on whichever candidate the reservoir ends up keeping.'
+    },
+
+    'f-ris-estimator': {
+      code: {
+        file: 'reservoir.h (planned)',
+        lines:
+`// After streaming every candidate through the reservoir (next section):
+color f_y = shadow_ray_verified_contribution(reservoir.y);
+@@color L_direct = f_y * reservoir.W();`
+      },
+      example:
+        '<div class="ex-given">Continuing the 3-candidate example: suppose the reservoir (streamed below) keeps \\(y = x_2\\) with \\(w_{\\text{sum}}=0.66\\), \\(M=3\\), so \\(\\hat p(y) = 0.15\\):</div>' +
+        '\\[ W_y = \\frac{0.66}{3 \\times 0.15} = 1.4667 \\]' +
+        '<div class="ex-step">One shadow ray toward \\(x_2\\) comes back clear, so \\(f(y) \\approx \\hat p(y) = 0.15\\):</div>' +
+        '\\[ L_{\\text{direct}} \\approx 0.15 \\times 1.4667 = 0.22 \\]',
+      why:
+        'The payoff: 3 candidates were scored, but only 1 shadow ray was traced, and the result is still an unbiased estimate of the same integral naive NEE (one shadow ray, no scoring) approximates far more noisily. Scale \\(M\\) up to dozens via spatial/temporal reuse and the noise reduction compounds without the shadow-ray cost following it.'
+    },
+
+    'f-reservoir-update': {
+      code: {
+        file: 'reservoir.h :: update() (planned)',
+        lines:
+`struct reservoir {
+    Sample y;
+    double w_sum = 0;
+    int M = 0;
+
+    void update(Sample x_i, double w_i, std::mt19937& rng) {
+        w_sum += w_i;
+        M += 1;
+@@        if (random_double(rng) < w_i / w_sum) y = x_i;
+    }
+};`
+      },
+      example:
+        '<div class="ex-given">Streaming the 3 candidates from the RIS weight example, \\(w_1=0.06\\), \\(w_2=0.45\\), \\(w_3=0.15\\), in order:</div>' +
+        '<div class="ex-step">\\(i=1\\): \\(w_{\\text{sum}}=0.06\\), \\(M=1\\), replace prob. \\(=1.0\\) (always, first sample) \\(\\Rightarrow y=x_1\\)</div>' +
+        '<div class="ex-step">\\(i=2\\): \\(w_{\\text{sum}}=0.51\\), \\(M=2\\), replace prob. \\(=0.45/0.51=0.882\\) \\(\\Rightarrow\\) (suppose it wins) \\(y=x_2\\)</div>' +
+        '<div class="ex-step">\\(i=3\\): \\(w_{\\text{sum}}=0.66\\), \\(M=3\\), replace prob. \\(=0.15/0.66=0.227\\) \\(\\Rightarrow\\) (suppose it loses) \\(y\\) stays \\(x_2\\)</div>' +
+        '<div class="ex-result">Final: <span class="mono">y = x2, w_sum = 0.66, M = 3</span> - exactly the numbers the RIS estimator example above builds on.</div>',
+      why:
+        'Notice the reservoir never stores more than one sample plus two numbers, regardless of how many candidates stream through it - that\'s what makes it cheap enough to merge whole reservoirs together as single candidates in spatial and temporal reuse below, without the cost ever growing per merge.'
+    },
+
+    'f-reservoir-weight': {
+      code: {
+        file: 'reservoir.h (planned)',
+        lines:
+`@@double W() const { return w_sum / (M * p_hat(y)); }`
+      },
+      example:
+        '<div class="ex-given">Same reservoir as above: \\(w_{\\text{sum}}=0.66\\), \\(M=3\\), \\(\\hat p(y)=\\hat p(x_2)=0.15\\):</div>' +
+        '\\[ W_y = \\frac{0.66}{3 \\times 0.15} = 1.4667 \\]',
+      why:
+        'This single division is the entire "resolve the reservoir" step - no loop over past candidates needed, because \\(w_{\\text{sum}}\\) and \\(M\\) already summarize everything that streamed through. It\'s also exactly what spatial reuse reads off a neighbor\'s reservoir (as \\(W_n\\)) without recomputing anything.'
+    },
+
+    'f-spatial-combine': {
+      code: {
+        file: 'reservoir.h :: combine() (planned)',
+        lines:
+`void combine(const reservoir& other, Point3 here, std::mt19937& rng) {
+    double p_hat_here = target_function(here, other.y);
+@@    double w = p_hat_here * other.W() * other.M;
+    update(other.y, w, rng);
+    M += other.M - 1;  // update() already added 1
+}`
+      },
+      example:
+        '<div class="ex-given">Pixel P\'s own reservoir: \\(w_{\\text{sum}}=0.3\\), \\(M=4\\). Neighbor Q\'s reservoir: \\(y_Q\\), \\(W_Q=1.2\\), \\(M_Q=4\\). Re-scoring \\(y_Q\\) under P\'s own target function gives \\(\\hat p_{\\text{here}}(y_Q)=0.08\\):</div>' +
+        '\\[ w = 0.08 \\times 1.2 \\times 4 = 0.384 \\]' +
+        '<div class="ex-step">Feed \\((y_Q, 0.384)\\) into P\'s reservoir: \\(w_{\\text{sum}} = 0.3+0.384=0.684\\), replace prob. \\(=0.384/0.684=0.561\\) \\(\\Rightarrow\\) (suppose it wins) \\(y_P \\leftarrow y_Q\\), \\(M = 4+4=8\\)</div>' +
+        '\\[ W_{\\text{new}} = \\frac{0.684}{8 \\times 0.08} = 1.069 \\]' +
+        '<div class="ex-result">Pixel P now represents 8 candidates\' worth of sampling effort while only having traced its own 4 - the other 4 were free, borrowed from a neighbor who already paid for them.</div>',
+      why:
+        'Repeat this with a handful of neighbors (not just one) and a pixel with \\(M=4\\) of its own candidates ends the pass representing dozens - this is the actual mechanism behind ReSTIR\'s headline result: dramatically lower noise at the same per-pixel shadow-ray budget.'
+    },
+
+    'f-temporal-clamp': {
+      code: {
+        file: 'reservoir.h (planned)',
+        lines:
+`// Before merging last frame's reprojected reservoir into this frame's:
+int cap = k * current_frame_reservoir.M;  // k \u2248 20
+@@prev_frame_reservoir.M = std::min(prev_frame_reservoir.M, cap);
+current_frame_reservoir.combine(prev_frame_reservoir, here, rng);`
+      },
+      example:
+        '<div class="ex-given">After many frames of temporal accumulation, last frame\'s reservoir has grown to \\(M_{\\text{prev}}=340\\). This frame contributes \\(M_{\\text{cur}}=4\\) fresh candidates, \\(k=20\\):</div>' +
+        '\\[ \\text{cap} = 20 \\times 4 = 80 \\]' +
+        '<div class="ex-result">\\(340 > 80\\), so \\(M_{\\text{prev}}\\) is clamped to 80 before merging - without this, the combine formula above would weight last frame\'s sample \\(340{:}4 \\approx 85{:}1\\) against this frame\'s brand-new candidates, and the image would barely react to anything changing.</div>',
+      why:
+        'This is the one line standing between "converges beautifully over many static frames" and "ghosts for seconds after anything moves." It\'s a deliberate, tunable trade of some variance (a slightly noisier converged image) for a lot of responsiveness.'
+    },
+
+    'f-bias-note': {
+      code: {
+        file: 'not implemented in the planned first pass - noted for later',
+        lines:
+`// A rigorous fix (Bitterli et al. 2020, Section on unbiased reuse)
+// replaces the simple combine() above with a generalized MIS weight
+// summed across every reservoir in the neighborhood, including a
+// Jacobian term when the sampling domain shifts between pixels.`
+      },
+      example:
+        '<div class="ex-given">Two neighboring shading points on a curved surface, both reusing the same light sample \\(y\\):</div>' +
+        '<div class="ex-result">Each point has its own distance and angle to \\(y\\), so \\(\\hat p_{\\text{here}}(y) \\neq \\hat p_{\\text{neighbor}}(y)\\) in general - the spatial combine formula already re-evaluates \\(\\hat p\\) at the receiving pixel to account for this, but doesn\'t correct for the change of sampling domain (the Jacobian), which is the remaining source of bias in the simple version.</div>',
+      why:
+        'Practically: build and verify the biased-but-simple version first (this whole page, up through spatial/temporal reuse) and confirm it visibly reduces noise versus today\'s naive NEE baseline before reaching for the unbiased MIS correction - it\'s a real refinement, not a prerequisite for a working first pass.'
+    }
+  };
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function renderCode(lines) {
+    return lines.split('\n').map(function (line) {
+      if (line.indexOf('@@') === 0) {
+        return '<span class="hl-line">' + escapeHtml(line.slice(2)) + '</span>';
+      }
+      return escapeHtml(line);
+    }).join('\n');
+  }
+
+  document.querySelectorAll('.formula-card').forEach(function (card) {
+    var def = DETAILS[card.id];
+    if (!def) return;
+
+    var details = document.createElement('details');
+    details.className = 'formula-details';
+    details.innerHTML =
+      '<summary><span class="chevron">\u25b8</span>Show usage, worked example &amp; why it matters</summary>' +
+      '<div class="details-body">' +
+        '<div class="details-block">' +
+          '<div class="details-label">In the code &middot; ' + escapeHtml(def.code.file) + '</div>' +
+          '<pre class="code-block"><code>' + renderCode(def.code.lines) + '</code></pre>' +
+        '</div>' +
+        '<div class="details-block">' +
+          '<div class="details-label">Worked example</div>' +
+          '<div class="details-example">' + def.example + '</div>' +
+        '</div>' +
+        '<div class="details-block">' +
+          '<div class="details-label">Why it matters</div>' +
+          '<p class="details-why">' + def.why + '</p>' +
+        '</div>' +
+      '</div>';
+
+    card.appendChild(details);
+  });
+
+  // The math injected above (inside <details>, closed by default) needs an
+  // explicit typeset pass - it wasn't in the DOM for MathJax's automatic
+  // page-load pass, and content-visibility on closed <details> means it
+  // won't get picked up later just by opening it.
+  if (window.MathJax && MathJax.typesetPromise) {
+    MathJax.typesetPromise();
+  } else if (window.MathJax) {
+    MathJax.startup.promise.then(function () { MathJax.typesetPromise(); });
+  }
+})();
+</script>

@@ -3,7 +3,10 @@
 // The scene is the classic "random spheres" layout: a large ground sphere,
 // a field of small spheres with randomly chosen Lambertian/metal/dielectric
 // materials, and three signature large spheres (glass, matte, metal) in
-// front - good coverage of every material path in one image.
+// front - good coverage of every material path in one image. Two small
+// diffuse_light spheres sit above the field as explicit light sources,
+// exercised via next-event estimation (camera.h::sample_direct_lighting) -
+// the "before ReSTIR" baseline for direct lighting.
 //
 // Beyond the default single render, this file also drives a parameterized
 // benchmark sweep (--bench / --scene, orchestrated by benchmarks/sweep.py):
@@ -19,6 +22,7 @@
 #include <random>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "bvh.h"
 #include "camera.h"
@@ -31,15 +35,37 @@ namespace {
 constexpr double PI = 3.14159265358979323846;
 }
 
+// Adds the two fixed emissive spheres shared by every scene variant (default
+// render, flat/BVH benchmark pairs, sweep previews) so every comparison -
+// including the flat-vs-BVH timing benchmark - sees the same lights. Pushes
+// each into both `world` (so it's visible/occludable geometry, like any
+// other object) and `lights_out` (so camera.h's next-event estimation knows
+// to sample it directly).
+void add_lights(hittable_list& world, std::vector<std::shared_ptr<sphere>>& lights_out) {
+    auto light1_mat = std::make_shared<diffuse_light>(color(6, 6, 6));
+    auto light1 = std::make_shared<sphere>(point3(0, 5, 4), 0.7, light1_mat);
+    world.add(light1);
+    lights_out.push_back(light1);
+
+    auto light2_mat = std::make_shared<diffuse_light>(color(5, 5, 6.5));
+    auto light2 = std::make_shared<sphere>(point3(-6, 4, 2), 0.6, light2_mat);
+    world.add(light2);
+    lights_out.push_back(light2);
+}
+
 // grid_radius controls object count: the field loop runs
 // [-grid_radius, grid_radius) on both axes, so candidate count is roughly
 // (2*grid_radius)^2 before the "too close to the signature spheres" ones are
 // skipped. diffuse_frac/metal_frac select the material mix (glass gets
 // whatever's left of 1.0); defaults reproduce the original fixed 80/15/5 mix
 // exactly, so every existing call site keeps behaving as it always did.
-hittable_list build_scene(std::mt19937& rng, int grid_radius = 11, double diffuse_frac = 0.8,
+// `lights_out` is cleared and filled with every explicit light source added
+// to the scene (currently just the two from add_lights()).
+hittable_list build_scene(std::mt19937& rng, std::vector<std::shared_ptr<sphere>>& lights_out,
+                           int grid_radius = 11, double diffuse_frac = 0.8,
                            double metal_frac = 0.15) {
     hittable_list world;
+    lights_out.clear();
 
     auto ground_material = std::make_shared<lambertian>(color(0.5, 0.5, 0.5));
     world.add(std::make_shared<sphere>(point3(0, -1000, 0), 1000, ground_material));
@@ -79,6 +105,8 @@ hittable_list build_scene(std::mt19937& rng, int grid_radius = 11, double diffus
     auto material3 = std::make_shared<metal>(color(0.7, 0.6, 0.5), 0.0);
     world.add(std::make_shared<sphere>(point3(4, 1, 0), 1.0, material3));
 
+    add_lights(world, lights_out);
+
     // Wrap the flat list in a BVH so intersection is O(log N) instead of
     // O(N) - with hundreds of spheres here, this is the difference between a
     // render that takes seconds and one that takes many minutes.
@@ -88,10 +116,12 @@ hittable_list build_scene(std::mt19937& rng, int grid_radius = 11, double diffus
 // Builds the same random-sphere scene but as a flat hittable_list, with no
 // BVH wrapping - used by the benchmark modes to demonstrate the O(N) vs
 // O(log N) difference the acceleration structure makes on intersection cost.
-hittable_list build_scene_flat(std::mt19937& rng, int grid_radius = 11, double diffuse_frac = 0.8,
+hittable_list build_scene_flat(std::mt19937& rng, std::vector<std::shared_ptr<sphere>>& lights_out,
+                                int grid_radius = 11, double diffuse_frac = 0.8,
                                 double metal_frac = 0.15) {
     std::mt19937 rng2 = rng;  // same seed sequence as build_scene's inner loop
     hittable_list world;
+    lights_out.clear();
 
     auto ground_material = std::make_shared<lambertian>(color(0.5, 0.5, 0.5));
     world.add(std::make_shared<sphere>(point3(0, -1000, 0), 1000, ground_material));
@@ -123,6 +153,8 @@ hittable_list build_scene_flat(std::mt19937& rng, int grid_radius = 11, double d
     world.add(std::make_shared<sphere>(point3(-4, 1, 0), 1.0, material2));
     auto material3 = std::make_shared<metal>(color(0.7, 0.6, 0.5), 0.0);
     world.add(std::make_shared<sphere>(point3(4, 1, 0), 1.0, material3));
+
+    add_lights(world, lights_out);
 
     return world;  // NOT wrapped in a bvh_node
 }
@@ -170,19 +202,23 @@ void run_benchmark() {
     camera cam = make_camera(width, spp, depth, cfg);
 
     std::mt19937 rng_flat(cfg.seed);
-    hittable_list flat_world = build_scene_flat(rng_flat, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
+    std::vector<std::shared_ptr<sphere>> lights_flat;
+    hittable_list flat_world =
+        build_scene_flat(rng_flat, lights_flat, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
     std::fprintf(stderr, "[no BVH] %d objects, linear scan per ray\n",
                  static_cast<int>(flat_world.objects.size()));
     auto t0 = std::chrono::high_resolution_clock::now();
-    cam.render(flat_world, num_threads);
+    cam.render(flat_world, lights_flat, num_threads);
     auto t1 = std::chrono::high_resolution_clock::now();
     double flat_seconds = std::chrono::duration<double>(t1 - t0).count();
 
     std::mt19937 rng_bvh(cfg.seed);
-    hittable_list bvh_world = build_scene(rng_bvh, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
+    std::vector<std::shared_ptr<sphere>> lights_bvh;
+    hittable_list bvh_world =
+        build_scene(rng_bvh, lights_bvh, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
     std::fprintf(stderr, "[BVH]    same scene, wrapped in a bounding volume hierarchy\n");
     auto t2 = std::chrono::high_resolution_clock::now();
-    cam.render(bvh_world, num_threads);
+    cam.render(bvh_world, lights_bvh, num_threads);
     auto t3 = std::chrono::high_resolution_clock::now();
     double bvh_seconds = std::chrono::duration<double>(t3 - t2).count();
 
@@ -202,20 +238,24 @@ void run_benchmark() {
 // header benchmarks/sweep.py writes.
 void run_bench(int width, int spp, int depth, const scene_config& cfg, unsigned int num_threads) {
     std::mt19937 rng_flat(cfg.seed);
-    hittable_list flat_world = build_scene_flat(rng_flat, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
+    std::vector<std::shared_ptr<sphere>> lights_flat;
+    hittable_list flat_world =
+        build_scene_flat(rng_flat, lights_flat, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
     int object_count = static_cast<int>(flat_world.objects.size());
 
     camera cam_flat = make_camera(width, spp, depth, cfg);
     auto t0 = std::chrono::high_resolution_clock::now();
-    cam_flat.render(flat_world, num_threads);
+    cam_flat.render(flat_world, lights_flat, num_threads);
     auto t1 = std::chrono::high_resolution_clock::now();
     double flat_seconds = std::chrono::duration<double>(t1 - t0).count();
 
     std::mt19937 rng_bvh(cfg.seed);
-    hittable_list bvh_world = build_scene(rng_bvh, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
+    std::vector<std::shared_ptr<sphere>> lights_bvh;
+    hittable_list bvh_world =
+        build_scene(rng_bvh, lights_bvh, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
     camera cam_bvh = make_camera(width, spp, depth, cfg);
     auto t2 = std::chrono::high_resolution_clock::now();
-    cam_bvh.render(bvh_world, num_threads);
+    cam_bvh.render(bvh_world, lights_bvh, num_threads);
     auto t3 = std::chrono::high_resolution_clock::now();
     double bvh_seconds = std::chrono::duration<double>(t3 - t2).count();
 
@@ -234,10 +274,11 @@ void run_bench(int width, int spp, int depth, const scene_config& cfg, unsigned 
 void run_scene_render(int width, int spp, int depth, const scene_config& cfg,
                        const std::string& out_path, unsigned int num_threads) {
     std::mt19937 rng(cfg.seed);
-    hittable_list world = build_scene(rng, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
+    std::vector<std::shared_ptr<sphere>> lights;
+    hittable_list world = build_scene(rng, lights, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
     camera cam = make_camera(width, spp, depth, cfg);
 
-    std::vector<uint8_t> pixels = cam.render(world, num_threads);
+    std::vector<uint8_t> pixels = cam.render(world, lights, num_threads);
     int height = cam.height();
 
     std::ofstream out(out_path, std::ios::binary);
@@ -317,15 +358,16 @@ int main(int argc, char** argv) {
 
     scene_config cfg;  // defaults - the original fixed scene/camera
     std::mt19937 rng(cfg.seed);
-    hittable_list world = build_scene(rng, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
+    std::vector<std::shared_ptr<sphere>> lights;
+    hittable_list world = build_scene(rng, lights, cfg.grid_radius, cfg.diffuse_frac, cfg.metal_frac);
     camera cam = make_camera(image_width, samples_per_pixel, max_depth, cfg);
 
-    std::fprintf(stderr, "Rendering %dx%d, %d spp, depth %d, %u threads...\n", image_width,
-                 static_cast<int>(image_width / cam.aspect_ratio), samples_per_pixel, max_depth,
-                 num_threads);
+    std::fprintf(stderr, "Rendering %dx%d, %d spp, depth %d, %u threads, %d light(s)...\n",
+                 image_width, static_cast<int>(image_width / cam.aspect_ratio), samples_per_pixel,
+                 max_depth, num_threads, static_cast<int>(lights.size()));
 
     auto t0 = std::chrono::high_resolution_clock::now();
-    std::vector<uint8_t> pixels = cam.render(world, num_threads);
+    std::vector<uint8_t> pixels = cam.render(world, lights, num_threads);
     auto t1 = std::chrono::high_resolution_clock::now();
     double seconds = std::chrono::duration<double>(t1 - t0).count();
 

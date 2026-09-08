@@ -21,6 +21,23 @@ public:
                           ray& /*scattered*/, std::mt19937& /*rng*/) const {
         return false;
     }
+
+    // Light a surface emits on its own, independent of any incoming ray.
+    // Zero for every material except diffuse_light. camera.h adds this in
+    // any time a ray hits a surface, so a light source is visible whether a
+    // ray reaches it by chance (implicit) or is aimed at it deliberately by
+    // next-event-estimation light sampling (explicit).
+    virtual color emitted() const { return color(0, 0, 0); }
+
+    // True for materials whose scatter direction is a (near-)delta
+    // distribution - metal and dielectric. camera.h uses this to decide
+    // whether explicit light sampling makes sense at a hit (it doesn't for
+    // a mirror: almost every sampled light direction misses the one
+    // direction the BRDF actually reflects into) and whether the *next*
+    // bounce is allowed to count a light it happens to land on directly
+    // (skipped for diffuse bounces, since NEE already accounted for that
+    // light at the vertex before them - see camera.h::ray_color).
+    virtual bool is_specular() const { return false; }
 };
 
 // Ideal matte surface. Scatters uniformly-ish about the normal (normal +
@@ -61,6 +78,8 @@ public:
         return dot(scattered.direction(), rec.normal) > 0;
     }
 
+    bool is_specular() const override { return true; }
+
     color albedo;
     double fuzz;
 };
@@ -94,6 +113,8 @@ public:
         return true;
     }
 
+    bool is_specular() const override { return true; }
+
     double refraction_index;
 
 private:
@@ -103,4 +124,19 @@ private:
         r0 = r0 * r0;
         return r0 + (1 - r0) * std::pow((1 - cosine), 5);
     }
+};
+
+// Emissive surface - a light source. It doesn't scatter (scatter() inherits
+// the base class's `return false`, which ends the path exactly like a ray
+// escaping into empty space would), it just glows: emitted() returns a
+// constant radiance that camera.h adds in on every hit, whether the ray
+// found this surface by chance or was aimed at it deliberately by
+// sample_direct_lighting's next-event estimation.
+class diffuse_light : public material {
+public:
+    explicit diffuse_light(const color& emit) : emit(emit) {}
+
+    color emitted() const override { return emit; }
+
+    color emit;
 };

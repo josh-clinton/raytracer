@@ -7,6 +7,14 @@
 //   - Recursive ray tracing: ray_color() recurses on scattered rays up to
 //     `max_depth`, accumulating attenuation - a direct implementation of
 //     the rendering equation truncated to a finite number of bounces.
+//   - Next-event estimation: at every non-specular hit, sample_direct_lighting()
+//     picks a light, importance-samples a direction toward it, and traces
+//     one shadow ray - instead of hoping a blind BRDF bounce wanders onto a
+//     light by chance. This is the "many lights" direct-lighting baseline
+//     ReSTIR (next project step) is built to make cheaper and lower-noise:
+//     ReSTIR reuses this exact "score candidates cheaply, verify the winner
+//     with one ray" shape, just with many candidates resolved into one
+//     reservoir instead of a single uniform pick.
 //   - Parallelism: rows are distributed across a thread pool, which is the
 //     minimum viable version of the "profile, debug, and optimize graphics
 //     workloads for performance" bullet in the JD.
@@ -16,6 +24,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -24,6 +33,7 @@
 #include "hittable.h"
 #include "material.h"
 #include "ray.h"
+#include "sphere.h"
 #include "vec3.h"
 
 class camera {
@@ -42,8 +52,14 @@ public:
     double focus_dist = 10;
 
     // Renders the scene into a flat RGB8 buffer (image_width * image_height * 3
-    // bytes) using `num_threads` worker threads, one row-range each.
-    std::vector<uint8_t> render(const hittable& world, int num_threads) {
+    // bytes) using `num_threads` worker threads, one row-range each. `lights`
+    // lists every emissive object next-event estimation should sample
+    // directly; pass an empty vector for a scene with no explicit lights
+    // (direct-light sampling is simply skipped, same as before this feature
+    // existed).
+    std::vector<uint8_t> render(const hittable& world,
+                                 const std::vector<std::shared_ptr<sphere>>& lights,
+                                 int num_threads) {
         initialize();
 
         std::vector<uint8_t> pixels(static_cast<size_t>(image_width) * image_height * 3);
@@ -61,7 +77,7 @@ public:
                     color pixel_color(0, 0, 0);
                     for (int s = 0; s < samples_per_pixel; s++) {
                         ray r = get_ray(i, j, rng);
-                        pixel_color += ray_color(r, max_depth, world, rng);
+                        pixel_color += ray_color(r, max_depth, world, lights, rng);
                     }
                     pixel_color = pixel_color / static_cast<double>(samples_per_pixel);
 
@@ -145,25 +161,103 @@ private:
         return center + (p.x() * defocus_disk_u) + (p.y() * defocus_disk_v);
     }
 
+    // Explicit direct-light sampling (next event estimation): pick one light
+    // uniformly out of `lights`, importance-sample a direction toward it via
+    // solid-angle cone sampling (sphere.h), and trace exactly one shadow ray
+    // to verify it's actually visible. This "score a candidate cheaply, only
+    // pay for a shadow ray on the one you're using" shape is deliberately
+    // how ReSTIR's reservoir resampling works too, just with a single
+    // candidate here instead of many resampled into one reservoir - this
+    // function's noise (visible as blotchy shadows/highlights when lights
+    // are numerous) is exactly what the reservoir version is measured
+    // against.
+    color sample_direct_lighting(const hit_record& rec, const hittable& world,
+                                  const std::vector<std::shared_ptr<sphere>>& lights,
+                                  const color& brdf_albedo, std::mt19937& rng) const {
+        size_t light_idx = static_cast<size_t>(random_double(rng) * lights.size());
+        if (light_idx >= lights.size()) light_idx = lights.size() - 1;
+        const auto& light = lights[light_idx];
+
+        // Solid-angle pdf of hitting this light from rec.p, *given* it was
+        // the light picked. 0 means rec.p is inside/touching the light (or
+        // otherwise degenerate) - nothing sensible to sample.
+        double pdf_dir = light->pdf_value(rec.p);
+        if (pdf_dir <= 0) return color(0, 0, 0);
+
+        vec3 light_dir = light->random(rec.p, rng);  // unit direction, sampled within the light's cone
+        double cos_theta_surface = dot(rec.normal, light_dir);
+        if (cos_theta_surface <= 0) return color(0, 0, 0);  // light is behind the surface
+
+        // The direction was constructed to hit the light, so this recovers
+        // the exact distance to it (as a byproduct, reusing the same
+        // ray-sphere intersection sphere::hit() already implements) without
+        // needing separate geometry math.
+        hit_record light_hit;
+        if (!light->hit(ray(rec.p, light_dir), interval(0.001, std::numeric_limits<double>::infinity()),
+                         light_hit)) {
+            return color(0, 0, 0);  // shouldn't happen; guard against float edge cases
+        }
+
+        ray shadow_ray(rec.p, light_dir);
+        hit_record shadow_rec;
+        if (world.hit(shadow_ray, interval(0.001, light_hit.t - 0.001), shadow_rec)) {
+            return color(0, 0, 0);  // something else sits between the surface and the light
+        }
+
+        color light_emit = light->get_material()->emitted();
+        color lambertian_brdf = brdf_albedo / pi;  // Lambertian BRDF = albedo / pi
+        double num_lights = static_cast<double>(lights.size());
+
+        // Monte Carlo estimator for the direct-lighting integral:
+        // Le * BRDF * cos(theta) / pdf(direction). pdf_dir is the pdf
+        // *given* this light was picked; picking it happened with
+        // probability 1/num_lights, so the combined pdf is pdf_dir /
+        // num_lights - dividing by that is the same as multiplying by
+        // num_lights, which is what appears below.
+        return light_emit * lambertian_brdf * cos_theta_surface * num_lights / pdf_dir;
+    }
+
     // The heart of the path tracer: intersect, shade, recurse.
     // Each bounce multiplies in the surface's attenuation; hitting nothing
     // terminates the path with a soft sky gradient acting as the light
     // source (a simple constant/environment-light approximation).
-    color ray_color(const ray& r, int depth, const hittable& world, std::mt19937& rng) const {
+    //
+    // `count_emission` guards against double-counting a light: it's true
+    // for the primary camera ray and for any ray following a specular
+    // (mirror/glass) bounce, since neither of those vertices could have
+    // explicitly sampled the light via NEE. It's false for a ray following
+    // a diffuse bounce, because sample_direct_lighting() already accounted
+    // for whatever light is visible from that vertex - letting the
+    // indirect ray *also* add emitted() if it happens to land on a light
+    // would count that light twice.
+    color ray_color(const ray& r, int depth, const hittable& world,
+                     const std::vector<std::shared_ptr<sphere>>& lights, std::mt19937& rng,
+                     bool count_emission = true) const {
         if (depth <= 0) return color(0, 0, 0);
 
         hit_record rec;
-        if (world.hit(r, interval(0.001, std::numeric_limits<double>::infinity()), rec)) {
-            ray scattered;
-            color attenuation;
-            if (rec.mat->scatter(r, rec, attenuation, scattered, rng)) {
-                return attenuation * ray_color(scattered, depth - 1, world, rng);
-            }
-            return color(0, 0, 0);
+        if (!world.hit(r, interval(0.001, std::numeric_limits<double>::infinity()), rec)) {
+            vec3 unit_direction = unit_vector(r.direction());
+            double a = 0.5 * (unit_direction.y() + 1.0);
+            return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
         }
 
-        vec3 unit_direction = unit_vector(r.direction());
-        double a = 0.5 * (unit_direction.y() + 1.0);
-        return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
+        color emitted = count_emission ? rec.mat->emitted() : color(0, 0, 0);
+
+        ray scattered;
+        color attenuation;
+        if (!rec.mat->scatter(r, rec, attenuation, scattered, rng)) {
+            return emitted;
+        }
+
+        bool specular = rec.mat->is_specular();
+        color direct(0, 0, 0);
+        if (!specular && !lights.empty()) {
+            direct = sample_direct_lighting(rec, world, lights, attenuation, rng);
+        }
+
+        color indirect = attenuation * ray_color(scattered, depth - 1, world, lights, rng, specular);
+
+        return emitted + direct + indirect;
     }
 };

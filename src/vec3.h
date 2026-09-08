@@ -8,6 +8,11 @@
 #include <iostream>
 #include <random>
 
+// Shared math constant. Used by sphere.h's solid-angle light sampling
+// (a sphere light's pdf is 1 / (2*pi*(1-cos_theta_max))) and anywhere else
+// that needs it, so it isn't redefined ad hoc in multiple files.
+constexpr double pi = 3.14159265358979323846;
+
 class vec3 {
 public:
     double e[3];
@@ -149,4 +154,23 @@ inline vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
     vec3 r_out_perp = etai_over_etat * (uv + cos_theta * n);
     vec3 r_out_parallel = -std::sqrt(std::fabs(1.0 - r_out_perp.length_squared())) * n;
     return r_out_perp + r_out_parallel;
+}
+
+// Uniformly samples a direction, in a local frame where +z points at a
+// sphere's center, within the cone that sphere subtends (radius, at
+// distance_squared away). This concentrates every sample on the visible
+// disc of the sphere instead of wasting samples on directions that can't
+// possibly hit it - the standard solid-angle technique for sampling a
+// spherical light (see sphere.h's pdf_value()/random()).
+inline vec3 random_to_sphere(double radius, double distance_squared, std::mt19937& rng) {
+    double r1 = random_double(rng);
+    double r2 = random_double(rng);
+    double z = 1 + r2 * (std::sqrt(1 - radius * radius / distance_squared) - 1);
+
+    double phi = 2 * pi * r1;
+    double sin_theta = std::sqrt(1 - z * z);
+    double x = std::cos(phi) * sin_theta;
+    double y = std::sin(phi) * sin_theta;
+
+    return vec3(x, y, z);
 }

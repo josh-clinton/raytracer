@@ -18,6 +18,12 @@ progression is visible.
 - **`bvh_diagram.html`** — a diagrammed explanation of the bounding-volume
   hierarchy acceleration structure: what an AABB is, how the tree nests, and
   why walking it beats scanning every object.
+- **`restir_reference.html`** — part 2's math reference: weighted reservoir
+  sampling, resampled importance sampling, and spatiotemporal reuse, the
+  same hoverable-legend/worked-example format as `formula_reference.html`.
+  Cards are marked shipped (today's next-event-estimation baseline in
+  `camera.h::sample_direct_lighting()`) or planned (the reservoir-based
+  version it's being measured against, `LEARNING_ROADMAP.md`'s next step).
 
-The three `.html` files are self-contained — open any of them directly in a
+The `.html` files are self-contained — open any of them directly in a
 browser, no build step or server needed.
