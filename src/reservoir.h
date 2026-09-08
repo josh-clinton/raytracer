@@ -12,10 +12,11 @@
 // Deliberately generic: this class knows nothing about lights, shading, or
 // BRDFs - it just knows how to stream weighted candidates of some caller-
 // supplied Sample type and keep one. camera.h::sample_direct_lighting()
-// supplies `light_sample` as that type today. Spatial and temporal reuse
-// (the next two project steps) will reuse this exact same class - merging
-// two reservoirs together is just feeding one reservoir's chosen sample
-// into the other as a single candidate, via this same update() method.
+// supplies `light_sample` as that type today. Spatial reuse (camera.h's
+// spatially_combined_reservoir(), shipped 2026-09) and temporal reuse (next
+// project step) both extend this exact same class via combine() below -
+// merging two reservoirs is just feeding one's already-chosen sample into
+// the other as a single weighted candidate.
 #pragma once
 
 #include <random>
@@ -55,5 +56,39 @@ public:
     double W() const {
         if (M == 0 || p_hat_y <= 0) return 0.0;
         return w_sum / (M * p_hat_y);
+    }
+
+    // Merges another reservoir's already-chosen winner into this one as a
+    // single weighted candidate - the streaming combine rule generalized
+    // resampled importance sampling uses to merge reservoirs built from
+    // *different* domains (Bitterli et al., "Spatiotemporal Reservoir
+    // Resampling", 2020, eq. 6). `other`'s winner stands in for all
+    // `other_M` candidates `other` already resampled down to one, so its
+    // combine weight is `p_hat_here * other_W * other_M` rather than a
+    // plain resampling weight.
+    //
+    // `rescored_sample` and `p_hat_here` are `other`'s winner and target-
+    // function value, both re-evaluated in *this* reservoir's own domain by
+    // the caller first (see light_sample::rescored() in camera.h) - a
+    // target-function value computed at a different shading point isn't
+    // valid here; only the underlying world-space sample (e.g. a point on
+    // a light) carries over as-is. `other_M`/`other_W` are simply
+    // `other.M`/`other.W()` - passed as plain values rather than the whole
+    // reservoir so this stays generic and doesn't need to know `other`'s
+    // domain either.
+    //
+    // Deliberately skips the Jacobian correction full generalized MIS uses
+    // when the two domains differ substantially (e.g. very different
+    // surface orientation or distance) - fine for the nearby, similarly-
+    // oriented neighbors spatial reuse restricts itself to (see camera.h's
+    // normal/depth reject checks before this is ever called), but would
+    // introduce bias for reservoirs from more different domains and is a
+    // known simplification, not an oversight.
+    void combine(const Sample& rescored_sample, double p_hat_here, int other_M, double other_W,
+                 std::mt19937& rng) {
+        if (other_M <= 0 || p_hat_here <= 0) return;
+        double weight = p_hat_here * other_W * other_M;
+        update(rescored_sample, weight, p_hat_here, rng);
+        M += other_M - 1;  // update() already counted 1 candidate; correct up to other_M
     }
 };
