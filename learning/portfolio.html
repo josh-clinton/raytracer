@@ -243,6 +243,9 @@
   .bench-fill { height: 100%; border-radius: 3px; }
   .bench-fill.slow { background: var(--text-muted); width: 100%; }
   .bench-fill.fast { background: var(--accent); width: 16%; }
+  .bench-fill.rr-baseline { background: var(--text-muted); width: 100%; }
+  .bench-fill.rr-reservoir { background: var(--sky); width: 51%; }
+  .bench-fill.rr-spatial { background: var(--good); width: 48%; }
 
   .bench-note {
     margin-top: 14px;
@@ -364,8 +367,8 @@
           </tr>
           <tr>
             <td>ReSTIR-based algorithms, spatiotemporal resampling, real-time RT research</td>
-            <td>Not yet &mdash; reading Bitterli et al. 2020 next; minimal ReSTIR direct-lighting pass planned</td>
-            <td><span class="status next">next up</span></td>
+            <td>Resampled importance sampling (weighted reservoir sampling, Bitterli et al. 2020) for direct lighting, plus spatial reuse of neighboring pixels' reservoirs &mdash; measured up to 1.96&times; lower MSE than uniform-pick NEE at equal sample counts. Temporal reuse across frames is the remaining piece of full spatiotemporal ReSTIR.</td>
+            <td><span class="status done">demonstrated</span></td>
           </tr>
           <tr>
             <td>Neural rendering</td>
@@ -395,6 +398,27 @@
   </section>
 
   <section>
+    <h2>Why RIS + spatial reuse matters</h2>
+    <p>Direct lighting means picking a light and testing whether it's visible &mdash; but a scene with dozens of small lights makes blind uniform picking noisy, since most picks land on a light that barely matters from a given shading point. Resampled importance sampling (RIS) scores several candidate lights per hit and streams them through a weighted reservoir (Bitterli et al., ReSTIR 2020) so the one candidate that pays for a shadow ray is whichever actually looked promising &mdash; same one-shadow-ray-per-hit cost as before, just aimed better. Spatial reuse then lets a pixel fold in its already-built neighbors' reservoirs as free extra candidates, rejecting any neighbor across a normal or depth discontinuity so reuse can't leak across a silhouette. I measured both against a uniform-pick baseline with an MSE sweep across light counts and sample budgets (<span class="mono">benchmarks/mse_sweep.py</span>):</p>
+
+    <div class="bench">
+      <div class="bench-row">
+        <div class="bench-label"><span>Baseline (uniform-pick NEE)</span><span class="val mono">MSE 39.4</span></div>
+        <div class="bench-track"><div class="bench-fill rr-baseline"></div></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-label"><span>Reservoir (RIS)</span><span class="val mono">MSE 20.1</span></div>
+        <div class="bench-track"><div class="bench-fill rr-reservoir"></div></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-label"><span>Reservoir + spatial reuse</span><span class="val mono">MSE 19.1</span></div>
+        <div class="bench-track"><div class="bench-fill rr-spatial"></div></div>
+      </div>
+      <div class="bench-note">32-light scene, 64 samples/pixel, mean of 3 runs against a 400-spp reference &mdash; RIS alone is <strong>1.96&times;</strong> lower MSE than uniform picking at equal sample count, and the gap widens with light count: negligible at 1 light (nothing to pick between), up to that 1.96&times; at 32. Spatial reuse adds a further, smaller gain here &mdash; this scene's dense field of small, differently shaded spheres trips the normal/depth reject checks often, correctly declining to reuse across nearby discontinuities rather than pointing at a flaw in the technique.</div>
+    </div>
+  </section>
+
+  <section>
     <h2>Project architecture</h2>
     <div class="filelist">
       <div class="row"><span class="fname">vec3.h</span><span class="fdesc">3D vector math + Monte Carlo sampling helpers</span></div>
@@ -403,7 +427,8 @@
       <div class="row"><span class="fname">hittable.h / sphere.h</span><span class="fdesc">Intersectable interface + ray&ndash;sphere intersection</span></div>
       <div class="row"><span class="fname">bvh.h</span><span class="fdesc">Bounding volume hierarchy for O(log N) intersection</span></div>
       <div class="row"><span class="fname">material.h</span><span class="fdesc">Lambertian, Metal, and Dielectric BRDFs</span></div>
-      <div class="row"><span class="fname">camera.h</span><span class="fdesc">Camera model, Monte Carlo render loop, multithreading</span></div>
+      <div class="row"><span class="fname">reservoir.h</span><span class="fdesc">Weighted reservoir sampling (RIS) for direct-lighting resampling</span></div>
+      <div class="row"><span class="fname">camera.h</span><span class="fdesc">Camera model, Monte Carlo render loop + RIS/spatial reuse direct lighting, multithreading</span></div>
       <div class="row"><span class="fname">main.cpp</span><span class="fdesc">Scene construction, CLI, benchmark mode</span></div>
     </div>
   </section>
@@ -417,7 +442,7 @@
       </div>
       <div class="rm-item">
         <div class="rm-tag">Real-time GI</div>
-        <div class="rm-body"><h3>Implement a minimal ReSTIR direct-lighting pass</h3><p>Reuse and resample light candidates spatially and temporally to get usable images at 1&ndash;4 samples per pixel instead of 100.</p></div>
+        <div class="rm-body"><h3>Add temporal reuse to the reservoir pipeline</h3><p>RIS and spatial reuse are in (measured above); temporal reuse carries each pixel's reservoir across frames the same way spatial reuse carries it across neighbors &mdash; the last piece of a full spatiotemporal ReSTIR pass.</p></div>
       </div>
       <div class="rm-item">
         <div class="rm-tag">Neural rendering</div>
